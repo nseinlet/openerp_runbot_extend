@@ -6,11 +6,14 @@ class runbot_repo(osv.Model):
     _columns = {
         'db_name': fields.char("Database name to replicate"),
         'no_build': fields.boolean('Do not buid'),
+        'sequence': fields.integer('Sequence of display', select=True),
     }
 
     _defaults = {
         'no_build': False,
     }
+
+    _order = 'sequence'
 
     def update_git(self, cr, uid, repo, context=None):
         super(runbot_repo, self).update_git(cr, uid, repo, context)
