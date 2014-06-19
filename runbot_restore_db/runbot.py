@@ -17,9 +17,10 @@ class runbot_repo(osv.Model):
 
     def update_git(self, cr, uid, repo, context=None):
         super(runbot_repo, self).update_git(cr, uid, repo, context)
-        bds = self.pool['runbot.build']
-        bds_ids = bds.search(cr, uid, [('repo_id', '=', repo.id), ('state', '=', 'pending')], context=context)
-        bds.write(cr, uid, bds_ids, {'state': 'done'}, context=context)
+        if repo.no_build:
+            bds = self.pool['runbot.build']
+            bds_ids = bds.search(cr, uid, [('repo_id', '=', repo.id), ('state', '=', 'pending')], context=context)
+            bds.write(cr, uid, bds_ids, {'state': 'done'}, context=context)
 
 class runbot_build(osv.osv):
     _inherit = "runbot.build"
