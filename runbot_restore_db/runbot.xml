@@ -7,6 +7,7 @@
             <field name="arch" type="xml">
                 <field name="modules" position="after">
                     <field name="db_name" />
+                    <field name="no_build" />
                 </field>
             </field>
         </record>
