@@ -8,6 +8,7 @@
                 <field name="modules" position="after">
                     <field name="db_name" />
                     <field name="no_build" />
+                    <field name="sequence" />
                 </field>
             </field>
         </record>
