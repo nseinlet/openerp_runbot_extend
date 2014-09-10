@@ -13,9 +13,8 @@ class runbot_repo(osv.Model):
     _inherit = "runbot.repo"
 
     _columns = {
-        'fallback_id': fields.many2one('runbot.repo', 'Fallback repo', domain=['|',('active','=', True),('active','=', False)]),
         'db_name': fields.char("Database name to replicate"),
-        'active': fields.boolean('Do not buid'),
+        'nobuild': fields.boolean('Do not buid'),
         'sequence': fields.integer('Sequence of display', select=True),
         'error': fields.selection(loglevels, 'Error messages'),
         'critical': fields.selection(loglevels, 'Critical messages'),
@@ -37,7 +36,7 @@ class runbot_repo(osv.Model):
 
     def update_git(self, cr, uid, repo, context=None):
         super(runbot_repo, self).update_git(cr, uid, repo, context)
-        if not repo.active:
+        if repo.nobuild:
             bds = self.pool['runbot.build']
             bds_ids = bds.search(cr, uid, [('repo_id', '=', repo.id), ('state', '=', 'pending')], context=context)
             bds.write(cr, uid, bds_ids, {'state': 'done'}, context=context)
