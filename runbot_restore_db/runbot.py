@@ -24,7 +24,6 @@ class runbot_repo(osv.Model):
     }
 
     _defaults = {
-        'active': True,
         'error': 'error',
         'critical': 'error',
         'traceback': 'error',
@@ -61,8 +60,18 @@ class runbot_build(osv.osv):
     def job_30_run(self, cr, uid, build, lock_path, log_path):
         runbot._re_error = self._get_regexeforlog(build=build, errlevel='error')
         runbot._re_warning = self._get_regexeforlog(build=build, errlevel='warning')
-
         super(runbot_build, self).job_30_run(cr, uid, build, lock_path, log_path)
+
+    def get_closest_branch_name(self, cr, uid, ids, target_repo_id, hint_branches, context=None):
+        """Return the name of the odoo branch
+        """
+        for build in self.browse(cr, uid, ids, context=context):
+            name = build.branch_id.branch_name
+            if name.split('-',1)[0] == "saas":
+                name = "%s-%s" % (name.split('-',1)[0], name.split('-',2)[1])
+            else:
+                name = name.split('-',1)[0]
+            return name
 
     def _get_regexeforlog(self, build, errlevel):
         addederror = False
