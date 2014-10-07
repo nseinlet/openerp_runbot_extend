@@ -1,5 +1,8 @@
 from openerp.osv import fields, osv
-from openerp.runbot import runbot
+from openerp.addons.runbot import runbot
+import psutil
+import os
+import signal
 
 loglevels = (('none', 'None'),
              ('warning', 'Warning'),
@@ -60,7 +63,7 @@ class runbot_build(osv.osv):
     def job_30_run(self, cr, uid, build, lock_path, log_path):
         runbot._re_error = self._get_regexeforlog(build=build, errlevel='error')
         runbot._re_warning = self._get_regexeforlog(build=build, errlevel='warning')
-        super(runbot_build, self).job_30_run(cr, uid, build, lock_path, log_path)
+        return super(runbot_build, self).job_30_run(cr, uid, build, lock_path, log_path)
 
     def get_closest_branch_name(self, cr, uid, ids, target_repo_id, hint_branches, context=None):
         """Return the name of the odoo branch
@@ -75,7 +78,7 @@ class runbot_build(osv.osv):
 
     def _get_regexeforlog(self, build, errlevel):
         addederror = False
-        regex = r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} \d '
+        regex = r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} \d+ '
         if build.repo_id.error == errlevel:
             if addederror:
                 regex += "|"
@@ -107,3 +110,13 @@ class runbot_build(osv.osv):
                 regex = '(Traceback \(most recent call last\))'
         #regex = '^' + regex + '$'
         return regex
+
+    def job_21_checkdeadbuild(self, cr, uid, build, lock_path, log_path):
+        for proc in psutil.process_iter():
+            if proc.name() in ('openerp', 'python'):
+                lgn = proc.cmdline()
+                if ('--xmlrpc-port=%s' % build.port) in lgn:
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except OSError:
+                        pass
