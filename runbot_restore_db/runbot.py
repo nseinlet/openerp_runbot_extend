@@ -202,7 +202,7 @@ class runbot_build(osv.osv):
         v = {
             'job_end': time.strftime(openerp.tools.DEFAULT_SERVER_DATETIME_FORMAT, log_time),
             'result': 'ok',
-            'status': 'done',
+            'state': 'done',
         }
         if grep(log_all, ".modules.loading: Modules loaded."):
             if rfind(log_all, _re_error):
@@ -215,7 +215,7 @@ class runbot_build(osv.osv):
         return 0
         
     def job_30_run(self, cr, uid, build, lock_path, log_path):
-        if build.status == 'done':
+        if build.state == 'done':
             return 0
         runbot._re_error = self._get_regexeforlog(build=build, errlevel='error')
         runbot._re_warning = self._get_regexeforlog(build=build, errlevel='warning')
