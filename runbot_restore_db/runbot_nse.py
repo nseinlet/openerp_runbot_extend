@@ -63,7 +63,7 @@ class runbot_build(osv.osv):
     def job_30_run(self, cr, uid, build, lock_path, log_path):
         runbot._re_error = self._get_regexeforlog(build=build, errlevel='error')
         runbot._re_warning = self._get_regexeforlog(build=build, errlevel='warning')
-        super(runbot_build, self).job_30_run(cr, uid, build, lock_path, log_path)
+        return super(runbot_build, self).job_30_run(cr, uid, build, lock_path, log_path)
 
     def get_closest_branch_name(self, cr, uid, ids, target_repo_id, hint_branches, context=None):
         """Return the name of the odoo branch
