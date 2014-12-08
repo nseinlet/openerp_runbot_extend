@@ -212,6 +212,24 @@ class runbot_build(osv.osv):
         if v['result'] == "ko":
             build.write(v)
             build.github_status()
+            # run server
+            cmd, mods = build.cmd()
+            if os.path.exists(build.server('addons/im_livechat')):
+                cmd += ["--workers", "2"]
+                cmd += ["--longpolling-port", "%d" % (build.port + 1)]
+                cmd += ["--max-cron-threads", "1"]
+            else:
+                # not sure, to avoid old server to check other dbs
+                cmd += ["--max-cron-threads", "0"]
+
+            cmd += ['-d', "%s-all" % build.dest]
+
+            if grep(build.server("tools/config.py"), "db-filter"):
+                if build.repo_id.nginx:
+                    cmd += ['--db-filter','%d.*$']
+                else:
+                    cmd += ['--db-filter','%s.*$' % build.dest]
+            return self.spawn(cmd, lock_path, log_path, cpu_limit=None, showstderr=True)
         return 0
         
     def job_30_run(self, cr, uid, build, lock_path, log_path):
