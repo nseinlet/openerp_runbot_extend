@@ -209,7 +209,7 @@ class runbot_build(osv.osv):
                 v['result'] = "ko"
         else:
             v['result'] = "ko"
-        if v['result'] == "ko"
+        if v['result'] == "ko":
             build.write(v)
             build.github_status()
 
