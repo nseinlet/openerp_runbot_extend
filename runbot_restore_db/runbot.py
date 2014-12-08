@@ -212,8 +212,11 @@ class runbot_build(osv.osv):
         if v['result'] == "ko":
             build.write(v)
             build.github_status()
-
+        return 0
+        
     def job_30_run(self, cr, uid, build, lock_path, log_path):
+        if build.status == 'done':
+            return 0
         runbot._re_error = self._get_regexeforlog(build=build, errlevel='error')
         runbot._re_warning = self._get_regexeforlog(build=build, errlevel='warning')
         return super(runbot_build, self).job_30_run(cr, uid, build, lock_path, log_path)
