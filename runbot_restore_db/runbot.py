@@ -177,6 +177,16 @@ class runbot_repo(osv.Model):
 class runbot_build(osv.osv):
     _inherit = "runbot.build"
 
+    def job_21_checkdeadbuild(self, cr, uid, build, lock_path, log_path):
+        for proc in psutil.process_iter():
+            if proc.name() in ('openerp', 'python', 'openerp-server'):
+                lgn = proc.cmdline()
+                if ('--xmlrpc-port=%s' % build.port) in lgn:
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except OSError:
+                        pass
+                            
     def job_25_restore(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
             return 0
@@ -233,7 +243,7 @@ class runbot_build(osv.osv):
         return 0
         
     def job_30_run(self, cr, uid, build, lock_path, log_path):
-        if build.state == 'running':
+        if build.repo_id.db_name and build.state == 'running' and build.result == "ko":
             return 0
         runbot._re_error = self._get_regexeforlog(build=build, errlevel='error')
         runbot._re_warning = self._get_regexeforlog(build=build, errlevel='warning')
@@ -284,13 +294,3 @@ class runbot_build(osv.osv):
                 regex = '(Traceback \(most recent call last\))'
         #regex = '^' + regex + '$'
         return regex
-
-    def job_21_checkdeadbuild(self, cr, uid, build, lock_path, log_path):
-        for proc in psutil.process_iter():
-            if proc.name() in ('openerp', 'python', 'openerp-server'):
-                lgn = proc.cmdline()
-                if ('--xmlrpc-port=%s' % build.port) in lgn:
-                    try:
-                        os.killpg(proc.pid, signal.SIGKILL)
-                    except OSError:
-                        pass
