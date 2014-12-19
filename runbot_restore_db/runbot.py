@@ -258,6 +258,12 @@ class runbot_build(osv.osv):
                 name = "%s-%s" % (name.split('-',1)[0], name.split('-',2)[1])
             else:
                 name = name.split('-',1)[0]
+            #retrieve last commit id for this branch
+            build_ids = self.search(cr, uid, [('repo_id', '=', target_repo_id), ('branch_id.branch_name', '=', name)])
+            if build_ids:
+                thebuild = self.browse(cr, uid, build_ids, context=context)
+                if thebuild:
+                    return thebuild[0].name
             return name
 
     def _get_regexeforlog(self, build, errlevel):
