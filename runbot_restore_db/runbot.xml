@@ -9,13 +9,74 @@
                     <field name="db_name" />
                     <field name="nobuild" />
                     <field name="sequence" />
+
+                    <field name="skip_job_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                    <field name="parse_job_ids" widget="many2many_tags" options="{'no_create': True}"/>
+
                     <field name="error" />
                     <field name="critical" />
                     <field name="traceback" />
                     <field name="warning" />
                     <field name="failed" />
                 </field>
+                <field name="testing" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </field>
+                <field name="running" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </field>
+                <field name="jobs" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </field>
             </field>
         </record>
+
+        <record id="view_repo_tree" model="ir.ui.view">
+            <field name="model">runbot.repo</field>
+            <field name="inherit_id" ref="runbot.view_repo_tree"/>
+            <field name="arch" type="xml">
+                <field name="testing" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </field>
+                <field name="running" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </field>
+                <field name="name" position="after">
+                    <field name="nobuild" />
+                </field>
+            </field>
+        </record>
+
+        <template id="build_button" inherit_id="runbot.build_button" name="runbotps.build_button">
+            <xpath expr="//ul" position="replace">
+                <ul class="dropdown-menu" role="menu">
+                    <li t-if="bu['result']=='skipped'">
+                        <a href="#" class="runbot-rebuild" t-att-data-runbot-build="bu['id']">Force Build <i class="fa fa-level-up"></i></a>
+                    </li>
+                    <t t-if="bu['state']=='running'">
+                        <li><a t-attf-href="http://{{bu['domain']}}/?db={{bu['real_dest']}}-all">Connect all <i class="fa fa-sign-in"></i></a></li>
+                        <li><a t-attf-href="http://{{bu['domain']}}/?db={{bu['real_dest']}}-base">Connect base <i class="fa fa-sign-in"></i></a></li>
+                        <li><a t-attf-href="http://{{bu['domain']}}/">Connect <i class="fa fa-sign-in"></i></a></li>
+                    </t>
+                    <li t-if="bu['state'] in ['done','running'] and bu_index==0">
+                        <a href="#" class="runbot-rebuild" t-att-data-runbot-build="bu['id']">Rebuild <i class="fa fa-refresh"/></a>
+                    </li>
+                    <li t-if="bu['state']!='testing' and bu['state']!='pending'" class="divider"></li>
+                    <li><a t-attf-href="/runbot/build/{{bu['id']}}">Logs <i class="fa fa-file-text-o"/></a></li>
+                    <t t-foreach="bu['parse_job_ids']" t-as='log'>
+                    <li><a t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/{{log}}.txt"><t t-esc="log"/> <i class="fa fa-file-text-o"/></a></li>
+                    </t>
+                    <li t-if="bu['state']!='pending'" class="divider"></li>
+                    <li><a t-attf-href="{{br['branch'].branch_url}}">Branch or pull <i class="fa fa-github"/></a></li>
+                    <li><a t-attf-href="https://{{repo.base}}/commit/{{bu['name']}}">Commit <i class="fa fa-github"/></a></li>
+                    <li><a t-attf-href="https://{{repo.base}}/compare/{{br['branch'].branch_name}}">Compare <i class="fa fa-github"/></a></li>
+                    <!-- TODO branch.pull from -->
+                    <li class="divider"></li>
+                    <li class="disabled"><a href="#">Runtime: <t t-esc="bu['job_time']"/>s</a></li>
+                    <li class="disabled"><a href="#">Port: <t t-esc="bu['port']"/></a></li>
+                    <li class="disabled"><a href="#">Age: <t t-esc="bu['job_age']"/></a></li>
+                </ul>
+            </xpath>
+        </template>
     </data>
 </openerp>
