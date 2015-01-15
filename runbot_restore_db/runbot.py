@@ -178,7 +178,8 @@ class runbot_build(osv.osv):
 
         build._log('run', 'Start running build %s' % build.dest)
 
-        result = ""
+        v = {}
+        result = "ok"
         log_names = [elmt.name for elmt in build.repo_id.parse_job_ids]
         for log_name in log_names:
             log_all = build.path('logs', log_name+'.txt')
@@ -195,9 +196,7 @@ class runbot_build(osv.osv):
                 result = "ko"
                 break;
             log_time = time.localtime(os.path.getmtime(log_all))
-            v = {
-                'job_end': time.strftime(openerp.tools.DEFAULT_SERVER_DATETIME_FORMAT, log_time),
-            }
+            v['job_end'] = time.strftime(openerp.tools.DEFAULT_SERVER_DATETIME_FORMAT, log_time)
         v['result'] = result
         build.write(v)
         build.github_status()
