@@ -8,8 +8,8 @@ import time
 import openerp
 from openerp.osv import fields, osv
 from openerp.addons.runbot import runbot
-from openerp.addons.runbot import log, dashes, mkdirs, grep, rfind, lock, locked, nowait, run, now, dt2time, s2human, flatten, decode_utf, uniq_list, fqdn
-from openerp.addons.runbot import _re_error, _re_warning, _re_job, _logger
+from openerp.addons.runbot.runbot import log, dashes, mkdirs, grep, rfind, lock, locked, nowait, run, now, dt2time, s2human, flatten, decode_utf, uniq_list, fqdn
+from openerp.addons.runbot.runbot import _re_error, _re_warning, _re_job, _logger
 
 
 loglevels = (('none', 'None'),
