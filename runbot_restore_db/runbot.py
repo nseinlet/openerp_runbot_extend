@@ -1,147 +1,20 @@
-from openerp.addons.runbot import runbot
 import psutil
 import datetime
-import fcntl
-import glob
-import hashlib
-import itertools
-import logging
-import operator
 import os
 import re
-import resource
-import shutil
 import signal
-import simplejson
-import socket
-import subprocess
-import sys
 import time
-from collections import OrderedDict
-
-import dateutil.parser
-import requests
-from matplotlib.font_manager import FontProperties
-from matplotlib.textpath import TextToPath
-import werkzeug
 
 import openerp
-from openerp import http
-from openerp.http import request
 from openerp.osv import fields, osv
-from openerp.tools import config, appdirs
-from openerp.addons.website.models.website import slug
-from openerp.addons.website_sale.controllers.main import QueryURL
+from openerp.addons.runbot import runbot
+from openerp.addons.runbot import log, dashes, mkdirs, grep, rfind, lock, locked, nowait, run, now, dt2time, s2human, flatten, decode_utf, uniq_list, fqdn
+from openerp.addons.runbot import _re_error, _re_warning, _re_job, _logger
 
 
 loglevels = (('none', 'None'),
              ('warning', 'Warning'),
              ('error', 'Error'))
-
-_logger = logging.getLogger(__name__)
-
-_re_error = r'^(?:\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} \d+ (?:ERROR|CRITICAL) )|(?:Traceback \(most recent call last\):)$'
-_re_warning = r'^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} \d+ WARNING '
-_re_job = re.compile('job_\d')
-
-def log(*l, **kw):
-    out = [i if isinstance(i, basestring) else repr(i) for i in l] + \
-          ["%s=%r" % (k, v) for k, v in kw.items()]
-    _logger.debug(' '.join(out))
-
-def dashes(string):
-    """Sanitize the input string"""
-    for i in '~":\'':
-        string = string.replace(i, "")
-    for i in '/_. ':
-        string = string.replace(i, "-")
-    return string
-
-def mkdirs(dirs):
-    for d in dirs:
-        if not os.path.exists(d):
-            os.makedirs(d)
-
-def grep(filename, string):
-    if os.path.isfile(filename):
-        return open(filename).read().find(string) != -1
-    return False
-
-def rfind(filename, pattern):
-    """Determine in something in filename matches the pattern"""
-    if os.path.isfile(filename):
-        regexp = re.compile(pattern, re.M)
-        with open(filename, 'r') as f:
-            if regexp.findall(f.read()):
-                return True
-    return False
-
-def lock(filename):
-    fd = os.open(filename, os.O_CREAT | os.O_RDWR, 0600)
-    fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-def locked(filename):
-    result = False
-    try:
-        fd = os.open(filename, os.O_CREAT | os.O_RDWR, 0600)
-        try:
-            fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except IOError:
-            result = True
-        os.close(fd)
-    except OSError:
-        result = False
-    return result
-
-def nowait():
-    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-
-def run(l, env=None):
-    """Run a command described by l in environment env"""
-    log("run", l)
-    env = dict(os.environ, **env) if env else None
-    if isinstance(l, list):
-        if env:
-            rc = os.spawnvpe(os.P_WAIT, l[0], l, env)
-        else:
-            rc = os.spawnvp(os.P_WAIT, l[0], l)
-    elif isinstance(l, str):
-        tmp = ['sh', '-c', l]
-        if env:
-            rc = os.spawnvpe(os.P_WAIT, tmp[0], tmp, env)
-        else:
-            rc = os.spawnvp(os.P_WAIT, tmp[0], tmp)
-    log("run", rc=rc)
-    return rc
-
-def now():
-    return time.strftime(openerp.tools.DEFAULT_SERVER_DATETIME_FORMAT)
-
-def dt2time(datetime):
-    """Convert datetime to time"""
-    return time.mktime(time.strptime(datetime, openerp.tools.DEFAULT_SERVER_DATETIME_FORMAT))
-
-def s2human(time):
-    """Convert a time in second into an human readable string"""
-    for delay, desc in [(86400,'d'),(3600,'h'),(60,'m')]:
-        if time >= delay:
-            return str(int(time / delay)) + desc
-    return str(int(time)) + "s"
-
-def flatten(list_of_lists):
-    return list(itertools.chain.from_iterable(list_of_lists))
-
-def decode_utf(field):
-    try:
-        return field.decode('utf-8')
-    except UnicodeDecodeError:
-        return ''
-
-def uniq_list(l):
-    return OrderedDict.fromkeys(l).keys()
-
-def fqdn():
-    return socket.gethostname()
 
 class runbot_build(osv.osv):
     _inherit = "runbot.build"
@@ -273,80 +146,20 @@ class runbot_build(osv.osv):
         #regex = '^' + regex + '$'
         return regex
 
-    # def schedule(self, cr, uid, ids, context=None):
-    #     """
-    #     /!\ must rewrite the all method because for each build we need
-    #         to remove jobs that were specified as skipped in the repo.
-    #     """
-    #     all_jobs = self.list_jobs()
-    #     icp = self.pool['ir.config_parameter']
-    #     timeout = int(icp.get_param(cr, uid, 'runbot.timeout', default=1800))
-
-    #     for build in self.browse(cr, uid, ids, context=context):
-    #         #remove skipped jobs
-    #         jobs = all_jobs[:]
-    #         for job_to_skip in build.repo_id.skip_job_ids:
-    #             jobs.remove(job_to_skip.name)
-    #         if build.state == 'pending':
-    #             # allocate port and schedule first job
-    #             port = self.find_port(cr, uid)
-    #             values = {
-    #                 'host': fqdn(),
-    #                 'port': port,
-    #                 'state': 'testing',
-    #                 'job': jobs[0],
-    #                 'job_start': now(),
-    #                 'job_end': False,
-    #             }
-    #             build.write(values)
-    #             cr.commit()
-    #         else:
-    #             # check if current job is finished
-    #             lock_path = build.path('logs', '%s.lock' % build.job)
-    #             if locked(lock_path):
-    #                 # kill if overpassed
-    #                 if build.job != jobs[-1] and build.job_time > timeout:
-    #                     build.logger('%s time exceded (%ss)', build.job, build.job_time)
-    #                     build.kill(result='killed')
-    #                 continue
-    #             build.logger('%s finished', build.job)
-    #             # schedule
-    #             v = {}
-    #             # testing -> running
-    #             if build.job == jobs[-2]:
-    #                 v['state'] = 'running'
-    #                 v['job'] = jobs[-1]
-    #                 v['job_end'] = now(),
-    #             # running -> done
-    #             elif build.job == jobs[-1]:
-    #                 v['state'] = 'done'
-    #                 v['job'] = ''
-    #             # testing
-    #             else:
-    #                 v['job'] = jobs[jobs.index(build.job) + 1]
-    #             build.write(v)
-    #         build.refresh()
-
-    #         # run job
-    #         if build.state != 'done':
-    #             build.logger('running %s', build.job)
-    #             job_method = getattr(self,build.job)
-    #             lock_path = build.path('logs', '%s.lock' % build.job)
-    #             log_path = build.path('logs', '%s.txt' % build.job)
-    #             pid = job_method(cr, uid, build, lock_path, log_path)
-    #             build.write({'pid': pid})
-    #         # needed to prevent losing pids if multiple jobs are started and one them raise an exception
-    #         cr.commit()
-
-    #         # cleanup only needed if it was not killed
-    #         if build.state == 'done':
-    #             build.cleanup()
     def schedule(self, cr, uid, ids, context=None):
-        jobs = self.list_jobs()
+        """
+        /!\ must rewrite the all method because for each build we need
+            to remove jobs that were specified as skipped in the repo.
+        """
+        all_jobs = self.list_jobs()
         icp = self.pool['ir.config_parameter']
         timeout = int(icp.get_param(cr, uid, 'runbot.timeout', default=1800))
 
         for build in self.browse(cr, uid, ids, context=context):
+            #remove skipped jobs
+            jobs = all_jobs[:]
+            for job_to_skip in build.repo_id.skip_job_ids:
+                jobs.remove(job_to_skip.name)
             if build.state == 'pending':
                 # allocate port and schedule first job
                 port = self.find_port(cr, uid)
@@ -418,21 +231,17 @@ class job(osv.Model):
 class runbot_repo(osv.Model):
     _inherit = "runbot.repo"
 
-    def __init__(self, pool, cr):
-        """
-        /!\ the runbot_build class needs to be declared before the
-            runbot_repo in the python file so that the list of jobs is complete.
-        """
-        build_obj = pool.get('runbot.build')
+    def cron_update_job(self, cr, uid, context=None):
+        build_obj = self.pool.get('runbot.build')
         jobs = build_obj.list_jobs()
-        job_obj = pool.get('runbot.job')
+        job_obj = self.pool.get('runbot.job')
         for job_name in jobs:
-            job_id = job_obj.search(cr, 1, [('name', '=', job_name)])
+            job_id = job_obj.search(cr, uid, [('name', '=', job_name)])
             if not job_id:
-                job_obj.create(cr, 1, {'name': job_name})
+                job_obj.create(cr, uid, {'name': job_name})
         job_to_rm_ids = job_obj.search(cr, 1, [('name', 'not in', jobs)])
-        job_obj.unlink(cr, 1, job_to_rm_ids)
-        return super(runbot_repo, self).__init__(pool, cr)
+        job_obj.unlink(cr, uid, job_to_rm_ids)
+        return True
 
     _columns = {
         'db_name': fields.char("Database name to replicate"),
