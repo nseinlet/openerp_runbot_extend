@@ -273,20 +273,80 @@ class runbot_build(osv.osv):
         #regex = '^' + regex + '$'
         return regex
 
+    # def schedule(self, cr, uid, ids, context=None):
+    #     """
+    #     /!\ must rewrite the all method because for each build we need
+    #         to remove jobs that were specified as skipped in the repo.
+    #     """
+    #     all_jobs = self.list_jobs()
+    #     icp = self.pool['ir.config_parameter']
+    #     timeout = int(icp.get_param(cr, uid, 'runbot.timeout', default=1800))
+
+    #     for build in self.browse(cr, uid, ids, context=context):
+    #         #remove skipped jobs
+    #         jobs = all_jobs[:]
+    #         for job_to_skip in build.repo_id.skip_job_ids:
+    #             jobs.remove(job_to_skip.name)
+    #         if build.state == 'pending':
+    #             # allocate port and schedule first job
+    #             port = self.find_port(cr, uid)
+    #             values = {
+    #                 'host': fqdn(),
+    #                 'port': port,
+    #                 'state': 'testing',
+    #                 'job': jobs[0],
+    #                 'job_start': now(),
+    #                 'job_end': False,
+    #             }
+    #             build.write(values)
+    #             cr.commit()
+    #         else:
+    #             # check if current job is finished
+    #             lock_path = build.path('logs', '%s.lock' % build.job)
+    #             if locked(lock_path):
+    #                 # kill if overpassed
+    #                 if build.job != jobs[-1] and build.job_time > timeout:
+    #                     build.logger('%s time exceded (%ss)', build.job, build.job_time)
+    #                     build.kill(result='killed')
+    #                 continue
+    #             build.logger('%s finished', build.job)
+    #             # schedule
+    #             v = {}
+    #             # testing -> running
+    #             if build.job == jobs[-2]:
+    #                 v['state'] = 'running'
+    #                 v['job'] = jobs[-1]
+    #                 v['job_end'] = now(),
+    #             # running -> done
+    #             elif build.job == jobs[-1]:
+    #                 v['state'] = 'done'
+    #                 v['job'] = ''
+    #             # testing
+    #             else:
+    #                 v['job'] = jobs[jobs.index(build.job) + 1]
+    #             build.write(v)
+    #         build.refresh()
+
+    #         # run job
+    #         if build.state != 'done':
+    #             build.logger('running %s', build.job)
+    #             job_method = getattr(self,build.job)
+    #             lock_path = build.path('logs', '%s.lock' % build.job)
+    #             log_path = build.path('logs', '%s.txt' % build.job)
+    #             pid = job_method(cr, uid, build, lock_path, log_path)
+    #             build.write({'pid': pid})
+    #         # needed to prevent losing pids if multiple jobs are started and one them raise an exception
+    #         cr.commit()
+
+    #         # cleanup only needed if it was not killed
+    #         if build.state == 'done':
+    #             build.cleanup()
     def schedule(self, cr, uid, ids, context=None):
-        """
-        /!\ must rewrite the all method because for each build we need
-            to remove jobs that were specified as skipped in the repo.
-        """
-        all_jobs = self.list_jobs()
+        jobs = self.list_jobs()
         icp = self.pool['ir.config_parameter']
         timeout = int(icp.get_param(cr, uid, 'runbot.timeout', default=1800))
 
         for build in self.browse(cr, uid, ids, context=context):
-            #remove skipped jobs
-            jobs = all_jobs[:]
-            for job_to_skip in build.repo_id.skip_job_ids:
-                jobs.remove(job_to_skip.name)
             if build.state == 'pending':
                 # allocate port and schedule first job
                 port = self.find_port(cr, uid)
@@ -358,17 +418,21 @@ class job(osv.Model):
 class runbot_repo(osv.Model):
     _inherit = "runbot.repo"
 
-    def cron_update_job(self, cr, uid, context=None):
-        build_obj = self.pool.get('runbot.build')
+    def __init__(self, pool, cr):
+        """
+        /!\ the runbot_build class needs to be declared before the
+            runbot_repo in the python file so that the list of jobs is complete.
+        """
+        build_obj = pool.get('runbot.build')
         jobs = build_obj.list_jobs()
-        job_obj = self.pool.get('runbot.job')
+        job_obj = pool.get('runbot.job')
         for job_name in jobs:
-            job_id = job_obj.search(cr, uid, [('name', '=', job_name)])
+            job_id = job_obj.search(cr, 1, [('name', '=', job_name)])
             if not job_id:
-                job_obj.create(cr, uid, {'name': job_name})
+                job_obj.create(cr, 1, {'name': job_name})
         job_to_rm_ids = job_obj.search(cr, 1, [('name', 'not in', jobs)])
-        job_obj.unlink(cr, uid, job_to_rm_ids)
-        return True
+        job_obj.unlink(cr, 1, job_to_rm_ids)
+        return super(runbot_repo, self).__init__(pool, cr)
 
     _columns = {
         'db_name': fields.char("Database name to replicate"),
