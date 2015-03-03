@@ -328,6 +328,7 @@ class runbot_build(osv.osv):
             build.refresh()
 
             # run job
+            pid = None
             if build.state != 'done':
                 build.logger('running %s', build.job)
                 job_method = getattr(self,build.job)
@@ -337,6 +338,11 @@ class runbot_build(osv.osv):
                 build.write({'pid': pid})
             # needed to prevent losing pids if multiple jobs are started and one them raise an exception
             cr.commit()
+
+            if pid == -2:
+                # no process to wait, directly call next job
+                # FIXME find a better way that this recursive call
+                build.schedule()
 
             # cleanup only needed if it was not killed
             if build.state == 'done':
