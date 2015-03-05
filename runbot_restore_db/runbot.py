@@ -39,8 +39,9 @@ class runbot_build(osv.osv):
     def job_26_upgrade(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
             return 0
+        to_test = build.repo_id.modules if build.repo_id.modules else 'all'
         cmd, mods = build.cmd()
-        cmd += ['-d', '%s-all' % build.dest, '-u', 'all', '--stop-after-init', '--log-level=debug', '--test-enable']
+        cmd += ['-d', '%s-all' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=debug', '--test-enable']
         return self.spawn(cmd, lock_path, log_path, cpu_limit=None)
 
     def job_30_run(self, cr, uid, build, lock_path, log_path):
