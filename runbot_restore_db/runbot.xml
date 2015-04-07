@@ -78,5 +78,16 @@
                 </ul>
             </xpath>
         </template>
+
+        <record id="ir_cron_runbot_update_job" model="ir.cron">
+            <field name="name">Update the list of jobs</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">minutes</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="True" />
+            <field name="model" eval="'runbot.repo'" />
+            <field name="function" eval="'cron_update_job'" />
+            <field name="args" eval="''" />
+        </record>
     </data>
 </openerp>
