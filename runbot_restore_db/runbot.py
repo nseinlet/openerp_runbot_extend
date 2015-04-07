@@ -41,7 +41,9 @@ class runbot_build(osv.osv):
             return 0
         to_test = build.repo_id.modules if build.repo_id.modules else 'all'
         cmd, mods = build.cmd()
-        cmd += ['-d', '%s-all' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=debug', '--test-enable']
+        cmd += ['-d', '%s-all' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=debug']
+        if not build.repo_id.no_testenable_job26:
+            cmd.append("--test-enable")
         return self.spawn(cmd, lock_path, log_path, cpu_limit=None)
 
     def job_30_run(self, cr, uid, build, lock_path, log_path):
@@ -255,6 +257,7 @@ class runbot_repo(osv.Model):
         'failed': fields.selection(loglevels, 'Failed messages'),
         'skip_job_ids': fields.many2many('runbot.job', string='Jobs to skip'),
         'parse_job_ids': fields.many2many('runbot.job', "repo_parse_job_rel", string='Jobs to parse'),
+        'no_testenable_job26': fields.boolean('No test-enabled', help='No test-enabled on job 26 (test-enable is unknown for 6.1)'),
     }
 
     _defaults = {

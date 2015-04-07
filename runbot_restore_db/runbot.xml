@@ -11,6 +11,7 @@
                     <field name="sequence" />
 
                     <field name="skip_job_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                    <field name="no_testenable_job26" />
                     <field name="parse_job_ids" widget="many2many_tags" options="{'no_create': True}"/>
 
                     <field name="error" />
