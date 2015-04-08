@@ -1,4 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-rrd_access_runbot_repo,rrd_runbot_repo,runbot.model_runbot_repo,,1,0,0,0
-rrd_access_runbot_branch,rrd_runbot_branch,runbot.model_runbot_branch,,1,0,0,0
-rrd_access_runbot_build,rrd_runbot_build,runbot.model_runbot_build,,1,0,0,0
+rrd_access_runbot_job,rrd_runbot_job,model_runbot_job,,1,0,0,0
+rrd_access_runbot_job,rrd_runbot_job,model_runbot_job,runbot.group_runbot_admin,1,1,1,1
