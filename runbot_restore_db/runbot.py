@@ -60,10 +60,10 @@ class runbot_build(osv.osv):
         for log_name in log_names:
             log_all = build.path('logs', log_name+'.txt')
             if grep(log_all, ".modules.loading: Modules loaded."):
-                if rfind(log_all, _re_error):
+                if rfind(log_all, runbot._re_error):
                     result = "ko"
                     break;
-                elif rfind(log_all, _re_warning):
+                elif rfind(log_all, runbot._re_warning):
                     result = "warn"
                 elif not grep(build.server("test/common.py"), "post_install") or grep(log_all, "Initiating shutdown."):
                     if result != "warn":
