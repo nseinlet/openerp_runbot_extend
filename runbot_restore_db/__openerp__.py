@@ -8,6 +8,7 @@
     'depends': ['runbot'],
     'data': [
         'runbot.xml',
+        'security/ir.model.access.csv',
     ],
     'installable': True,
 }
