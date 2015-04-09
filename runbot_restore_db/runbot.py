@@ -4,6 +4,8 @@ import os
 import re
 import signal
 import time
+import glob
+import shutil
 
 import openerp
 from openerp.osv import fields, osv
@@ -19,6 +21,24 @@ loglevels = (('none', 'None'),
 class runbot_build(osv.osv):
     _inherit = "runbot.build"
 
+    def checkout(self, cr, uid, ids, context=None):
+        super(runbot_build, self).checkout(cr, uid, ids, context)
+        import pudb
+        pudb.set_trace()
+        
+        #Check uploadable adon (EDI server)
+        for build in self.browse(cr, uid, ids, context=context):
+            # move all addons to server addons path
+            for module in set(glob.glob(build.path('uploadable addon/*'))):
+                basename = os.path.basename(module)
+                if not os.path.exists(build.server('addons', basename)):
+                    shutil.move(module, build.server('addons'))
+                else:
+                    build._log(
+                        'Building environment',
+                        'You have duplicate modules in your branches "%s"' % basename
+                    )
+                    
     def job_21_checkdeadbuild(self, cr, uid, build, lock_path, log_path):
         for proc in psutil.process_iter():
             if proc.name in ('openerp', 'python', 'openerp-server'):
@@ -274,7 +294,7 @@ class runbot_repo(osv.Model):
         super(runbot_repo, self).update_git(cr, uid, repo, context)
         if repo.nobuild:
             bds = self.pool['runbot.build']
-            bds_ids = bds.search(cr, uid, [('repo_id', '=', repo.id), ('state', '=', 'pending')], context=context)
+            bds_ids = bds.search(cr, uid, [('repo_id', '=', repo.id), ('state', '=', 'pending'), ('branch_id.sticky', '=', False)], context=context)
             bds.write(cr, uid, bds_ids, {'state': 'done'}, context=context)
 
 class RunbotControllerPS(runbot.RunbotController):
