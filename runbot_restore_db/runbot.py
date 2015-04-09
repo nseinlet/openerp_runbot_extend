@@ -23,8 +23,6 @@ class runbot_build(osv.osv):
 
     def checkout(self, cr, uid, ids, context=None):
         super(runbot_build, self).checkout(cr, uid, ids, context)
-        import pudb
-        pudb.set_trace()
         
         #Check uploadable adon (EDI server)
         for build in self.browse(cr, uid, ids, context=context):
