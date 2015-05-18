@@ -6,6 +6,8 @@ import signal
 import time
 import glob
 import shutil
+import subprocess
+import resource
 
 import openerp
 from openerp.osv import fields, osv
@@ -21,9 +23,26 @@ loglevels = (('none', 'None'),
 class runbot_build(osv.osv):
     _inherit = "runbot.build"
 
+    def spawncwd(self, cmd, lock_path, log_path, cpu_limit=None, shell=False, cwd=None):
+        def preexec_fn():
+            os.setsid()
+            if cpu_limit:
+                # set soft cpulimit
+                soft, hard = resource.getrlimit(resource.RLIMIT_CPU)
+                r = resource.getrusage(resource.RUSAGE_SELF)
+                cpu_time = r.ru_utime + r.ru_stime
+                resource.setrlimit(resource.RLIMIT_CPU, (cpu_time + cpu_limit, hard))
+            # close parent files
+            os.closerange(3, os.sysconf("SC_OPEN_MAX"))
+            lock(lock_path)
+        out=open(log_path,"w")
+        _logger.info("spawn: %s in %s stdout: %s", ' '.join(cmd), str(cwd), log_path)
+        p=subprocess.Popen(cmd, stdout=out, stderr=out, preexec_fn=preexec_fn, shell=shell, cwd=cwd)
+        return p.pid
+
     def checkout(self, cr, uid, ids, context=None):
         super(runbot_build, self).checkout(cr, uid, ids, context)
-        
+
         #Check uploadable adon (EDI server)
         for build in self.browse(cr, uid, ids, context=context):
             # move all addons to server addons path
@@ -36,7 +55,24 @@ class runbot_build(osv.osv):
                         'Building environment',
                         'You have duplicate modules in your branches "%s"' % basename
                     )
-                    
+
+    def job_20_test_all(self, cr, uid, build, lock_path, log_path):
+        if build.repo_id.docoverage:
+            build._log('test_all', 'Start test all modules')
+            path = self.path(cr, uid, build.id)
+            self.pg_createdb(cr, uid, "%s-all" % build.dest)
+            cmd, mods = build.cmd()
+            if grep(build.server("tools/config.py"), "test-enable"):
+                cmd.append("--test-enable")
+            cmd += ['-d', '%s-all' % build.dest, '-i', mods, '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
+            cmd = ['coverage', 'run', '--include=openerp/addons/*'] + cmd[1:]
+            # reset job_start to an accurate job_20 job_time
+            build.write({'job_start': now()})
+            build._log('job_20_coverage', " ".join(cmd))
+            return self.spawncwd(cmd, lock_path, log_path, cpu_limit=3500, cwd=path)
+        else:
+            return super(runbot_build, self).job_20_test_all(cr, uid, build, lock_path, log_path)
+
     def job_21_checkdeadbuild(self, cr, uid, build, lock_path, log_path):
         for proc in psutil.process_iter():
             if proc.name in ('openerp', 'python', 'openerp-server'):
@@ -46,6 +82,33 @@ class runbot_build(osv.osv):
                         os.killpg(proc.pid, signal.SIGKILL)
                     except OSError:
                         pass
+
+    def job_22_coverage_report(self, cr, uid, build, lock_path, log_path):
+        if build.repo_id.docoverage:
+            path = self.path(cr, uid, build.id)
+            cmd, mods = build.cmd()
+            if mods:
+                include = ",".join(["openerp/addons/%s" % mod.replace(" ","") for mod in mods.split(",")])
+            else:
+                include = "openerp/addons/*"
+            cmd = ['coverage', 'report' ,'--include=%s' % include]
+            build._log('coverage_report', " ".join(cmd))
+            return self.spawncwd(cmd, lock_path, log_path, cpu_limit=None, cwd=path)
+        else:
+            return 0
+
+    def job_23_coverage_report_html(self, cr, uid, build, lock_path, log_path):
+        if build.repo_id.docoverage:
+            path = self.path(cr, uid, build.id)
+            cmd, mods = build.cmd()
+            if mods:
+                include = ",".join(["openerp/addons/%s" % mod for mod in mods])
+            else:
+                include = "openerp/addons/*"
+            cmd = ['coverage', 'html', '--include=%s' % include, "-d", "logs/coverage"]
+            return self.spawncwd(cmd, lock_path, log_path, cpu_limit=None, cwd=path)
+        else:
+            return 0
 
     def job_25_restore(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
@@ -267,6 +330,7 @@ class runbot_repo(osv.Model):
     _columns = {
         'db_name': fields.char("Database name to replicate"),
         'nobuild': fields.boolean('Do not build'),
+        'docoverage': fields.boolean('Do coverage testing'),
         'sequence': fields.integer('Sequence of display', select=True),
         'error': fields.selection(loglevels, 'Error messages'),
         'critical': fields.selection(loglevels, 'Critical messages'),
@@ -300,4 +364,5 @@ class RunbotControllerPS(runbot.RunbotController):
     def build_info(self, build):
         res = super(RunbotControllerPS, self).build_info(build)
         res['parse_job_ids'] = [elmt.name for elmt in build.repo_id.parse_job_ids]
+        res['docoverage'] = build.repo_id.docoverage
         return res

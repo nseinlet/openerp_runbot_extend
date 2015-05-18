@@ -8,6 +8,7 @@
                 <field name="modules" position="after">
                     <field name="db_name" />
                     <field name="nobuild" />
+                    <field name="docoverage" />
                     <field name="sequence" />
 
                     <field name="skip_job_ids" widget="many2many_tags" options="{'no_create': True}"/>
@@ -66,6 +67,9 @@
                     <li><a t-attf-href="/runbot/build/{{bu['id']}}" target="_blank">Logs <i class="fa fa-file-text-o"/></a></li>
                     <t t-foreach="bu['parse_job_ids']" t-as='log'>
                     <li><a t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/{{log}}.txt" target="_blank"><t t-esc="log"/> <i class="fa fa-file-text-o"/></a></li>
+                    </t>
+                    <t t-if="bu['docoverage']">
+                        <li><a t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/coverage/index.html" target="_blank">Coverage <i class="fa fa-newspaper-o"/></a></li>
                     </t>
                     <li t-if="bu['state']!='pending'" class="divider"></li>
                     <li><a t-attf-href="{{br['branch'].branch_url}}" target="_blank">Branch or pull <i class="fa fa-github"/></a></li>
