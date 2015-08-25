@@ -27,15 +27,19 @@ class runbot_build(osv.osv):
         #Check uploadable adon (EDI server)
         for build in self.browse(cr, uid, ids, context=context):
             # move all addons to server addons path
+            modules_to_test = build.modules.split(",")
             for module in set(glob.glob(build.path('uploadable addon/*'))):
                 basename = os.path.basename(module)
                 if not os.path.exists(build.server('addons', basename)):
                     shutil.move(module, build.server('addons'))
+                    modules_to_test.append(basename)
                 else:
                     build._log(
                         'Building environment',
                         'You have duplicate modules in your branches "%s"' % basename
                     )
+            build.write({'modules': ','.join(modules_to_test)})
+            
                     
     def job_21_checkdeadbuild(self, cr, uid, build, lock_path, log_path):
         for proc in psutil.process_iter():
@@ -57,7 +61,7 @@ class runbot_build(osv.osv):
     def job_26_upgrade(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
             return 0
-        to_test = build.repo_id.modules if build.repo_id.modules else 'all'
+        to_test = build.modules if build.modules else 'all'
         cmd, mods = build.cmd()
         cmd += ['-d', '%s-all' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=debug']
         if not build.repo_id.no_testenable_job26:
