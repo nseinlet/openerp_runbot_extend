@@ -23,21 +23,24 @@ class runbot_build(osv.osv):
 
     def checkout(self, cr, uid, ids, context=None):
         super(runbot_build, self).checkout(cr, uid, ids, context)
-        
+        reps = ('uploadable addon', 'trial', 'default')
+
         #Check uploadable adon (EDI server)
         for build in self.browse(cr, uid, ids, context=context):
             # move all addons to server addons path
             modules_to_test = build.modules.split(",")
-            for module in set(glob.glob(build.path('uploadable addon/*'))):
-                basename = os.path.basename(module)
-                if not os.path.exists(build.server('addons', basename)):
-                    shutil.move(module, build.server('addons'))
-                    modules_to_test.append(basename)
-                else:
-                    build._log(
-                        'Building environment',
-                        'You have duplicate modules in your branches "%s"' % basename
-                    )
+            for rep in reps:
+                for module in set(glob.glob(build.path('%s/*' % rep))):
+                    basename = os.path.basename(module)
+                    if not os.path.exists(build.server('addons', basename)):
+                        shutil.move(module, build.server('addons'))
+                        if basename[:5]!="saas_":
+                            modules_to_test.append(basename)
+                    else:
+                        build._log(
+                            'Building environment',
+                            'You have duplicate modules in your branches "%s"' % basename
+                        )
             build.write({'modules': ','.join(modules_to_test)})
             
                     
@@ -113,15 +116,17 @@ class runbot_build(osv.osv):
 
         if grep(build.server("tools/config.py"), "db-filter"):
             if build.repo_id.nginx:
-                cmd += ['--db-filter','%d.*$']
+                cmd += ['--db-filter','%d.*' % build.id]
             else:
                 cmd += ['--db-filter','%s.*$' % build.dest]
 
         return self.spawn(cmd, lock_path, log_path, cpu_limit=None)
 
-    def get_closest_branch_name(self, cr, uid, ids, target_repo_id, hint_branches, context=None):
+    def _get_closest_branch_name(self, cr, uid, ids, target_repo_id, context=None):
         """Return the name of the odoo branch
         """
+        result_for = lambda d: (d.repo_id.id, d.name, 'exact')
+
         for build in self.browse(cr, uid, ids, context=context):
             name = build.branch_id.branch_name
             if name.split('-',1)[0] == "saas":
@@ -133,9 +138,8 @@ class runbot_build(osv.osv):
             if build_ids:
                 thebuild = self.browse(cr, uid, build_ids, context=context)
                 if thebuild:
-                    return thebuild[0].name
+                    return result_for(thebuild[0].branch_id)
             return name
-
     def _get_regexeforlog(self, build, errlevel):
         addederror = False
         regex = r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} \d+ '
