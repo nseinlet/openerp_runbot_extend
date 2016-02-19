@@ -57,7 +57,7 @@ class runbot_build(osv.osv):
     def job_25_restore(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
             return 0
-        self.pg_createdb(cr, uid, "%s-all" % build.dest)
+        self._local_pg_createdb(cr, uid, "%s-all" % build.dest)
         cmd = "pg_dump %s | psql %s-all" % (build.repo_id.db_name, build.dest)
         return self.spawn(cmd, lock_path, log_path, cpu_limit=None, shell=True)
 
