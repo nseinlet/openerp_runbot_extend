@@ -64,10 +64,7 @@ class runbot_build(osv.osv):
     def job_26_upgrade(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
             return 0
-        if build.repo_id.force_update_all:
-            to_test = 'all'
-        else:
-            to_test = build.modules if build.modules else 'all'
+        to_test = build.modules if build.modules and not build.repo_id.force_update_all else 'all'
         cmd, mods = build.cmd()
         cmd += ['-d', '%s-all' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=debug']
         if not build.repo_id.no_testenable_job26:
@@ -277,7 +274,7 @@ class runbot_repo(osv.Model):
 
     _columns = {
         'db_name': fields.char("Database name to replicate"),
-        'force_update_all' : fields.boolean("Force Update ALL"),
+        'force_update_all' : fields.boolean("Force Update ALL", help="Force update all on job_26 otherwise it will update only the modules in the repository"),
         'nobuild': fields.boolean('Do not build'),
         'sequence': fields.integer('Sequence of display', select=True),
         'error': fields.selection(loglevels, 'Error messages'),
