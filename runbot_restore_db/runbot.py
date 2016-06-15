@@ -322,7 +322,7 @@ class runbot_forced_branch(osv.Model):
 
     _columns = {
         'repo_id': fields.many2one('runbot.repo', 'Repository', required=True, ondelete='cascade', select=1),
-        'dep_repo_id': fields.many2one('runbot.repo', 'Repository', required=True, string="For dep. repo"),
+        'dep_repo_id': fields.many2one('runbot.repo', required=True, string="For dep. repo"),
         'name': fields.char('Branch name to replace', required=True),
         'forced_name': fields.char('Replacing branch name', required=True),
     }
