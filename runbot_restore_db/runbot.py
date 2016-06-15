@@ -140,7 +140,7 @@ class runbot_build(osv.osv):
                 name = name.split('-',1)[0]
             #Check replacing names
             if build.repo_id.forced_branch_ids:
-                alt_ids = self.pool.get('runbot.forced.branch').search(cr, uid, [('repo_id', '=', build.repo_id.id), ('name', '=', name)], context=context)
+                alt_ids = self.pool.get('runbot.forced.branch').search(cr, uid, [('repo_id', '=', build.repo_id.id), ('dep_repo_id', '=', target_repo_id), ('name', '=', name)], context=context)
                 if alt_ids:
                     alt = self.pool.get('runbot.forced.branch').browse(cr, uid, alt_ids, context=context)
                     name = alt[0].forced_name
@@ -322,6 +322,7 @@ class runbot_forced_branch(osv.Model):
 
     _columns = {
         'repo_id': fields.many2one('runbot.repo', 'Repository', required=True, ondelete='cascade', select=1),
+        'dep_repo_id': fields.many2one('runbot.repo', 'Repository', required=True, string="For dep. repo"),
         'name': fields.char('Branch name to replace', required=True),
         'forced_name': fields.char('Replacing branch name', required=True),
     }
