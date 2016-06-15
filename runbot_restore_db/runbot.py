@@ -10,7 +10,7 @@ import shutil
 import openerp
 from openerp.osv import fields, osv
 from openerp.addons.runbot import runbot
-from openerp.addons.runbot.runbot import log, dashes, mkdirs, grep, rfind, lock, locked, nowait, run, now, dt2time, s2human, flatten, decode_utf, uniq_list, fqdn
+from openerp.addons.runbot.runbot import log, dashes, mkdirs, grep, rfind, lock, locked, nowait, run, now, dt2time, s2human, flatten, decode_utf, uniq_list, fqdn, local_pgadmin_cursor
 from openerp.addons.runbot.runbot import _re_error, _re_warning, _re_job, _logger
 
 
@@ -20,6 +20,11 @@ loglevels = (('none', 'None'),
 
 class runbot_build(osv.osv):
     _inherit = "runbot.build"
+
+    def _local_pg_dropdb(self, cr, uid, dbname):
+        with local_pgadmin_cursor() as local_cr:
+            local_cr.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity  WHERE datname = '%s' and pid != pg_backend_pid()" % dbname)
+        super(runbot_build, self)._local_pg_dropdb(cr, uid, dbname)
 
     def checkout(self, cr, uid, ids, context=None):
         super(runbot_build, self).checkout(cr, uid, ids, context)
@@ -66,7 +71,7 @@ class runbot_build(osv.osv):
             return 0
         to_test = build.modules if build.modules and not build.repo_id.force_update_all else 'all'
         cmd, mods = build.cmd()
-        cmd += ['-d', '%s-all' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=debug']
+        cmd += ['-d', '%s-all' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=info']
         if not build.repo_id.no_testenable_job26:
             cmd.append("--test-enable")
         return self.spawn(cmd, lock_path, log_path, cpu_limit=None)
