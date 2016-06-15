@@ -121,7 +121,7 @@ class runbot_build(osv.osv):
 
         if grep(build.server("tools/config.py"), "db-filter"):
             if build.repo_id.nginx:
-                cmd += ['--db-filter','%d.*' % build.id]
+                cmd += ['--db-filter','%d.*']
             else:
                 cmd += ['--db-filter','%s.*$' % build.dest]
 
