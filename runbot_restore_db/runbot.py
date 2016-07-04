@@ -47,8 +47,8 @@ class runbot_build(osv.osv):
                             'You have duplicate modules in your branches "%s"' % basename
                         )
             build.write({'modules': ','.join(modules_to_test)})
-            
-                    
+
+
     def job_21_checkdeadbuild(self, cr, uid, build, lock_path, log_path):
         for proc in psutil.process_iter():
             if proc.name in ('openerp', 'python', 'openerp-server'):
@@ -138,6 +138,11 @@ class runbot_build(osv.osv):
                 name = "%s-%s" % (name.split('-',1)[0], name.split('-',2)[1])
             else:
                 name = name.split('-',1)[0]
+            #Check replacing names
+            for forced_branch in build.repo_id.forced_branch_ids:
+                if forced_branch.name == name and forced_branch.dep_repo_id.id == target_repo_id:
+                    name = forced_branch.forced_name
+                    break
             #retrieve last commit id for this branch
             build_ids = self.search(cr, uid, [('repo_id', '=', target_repo_id), ('branch_id.branch_name', '=', name)])
             if build_ids:
@@ -145,6 +150,7 @@ class runbot_build(osv.osv):
                 if thebuild:
                     return result_for(thebuild[0].branch_id)
             return name
+
     def _get_regexeforlog(self, build, errlevel):
         addederror = False
         regex = r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} \d+ '
@@ -290,6 +296,7 @@ class runbot_repo(osv.Model):
         'skip_job_ids': fields.many2many('runbot.job', string='Jobs to skip'),
         'parse_job_ids': fields.many2many('runbot.job', "repo_parse_job_rel", string='Jobs to parse'),
         'no_testenable_job26': fields.boolean('No test-enabled', help='No test-enabled on job 26 (test-enable is unknown for 6.1)'),
+        'forced_branch_ids': fields.one2many('runbot.forced.branch', 'repo_id', string='Replacing branch names')
     }
 
     _defaults = {
@@ -308,6 +315,17 @@ class runbot_repo(osv.Model):
             bds = self.pool['runbot.build']
             bds_ids = bds.search(cr, uid, [('repo_id', '=', repo.id), ('state', '=', 'pending'), ('branch_id.sticky', '=', False)], context=context)
             bds.write(cr, uid, bds_ids, {'state': 'done'}, context=context)
+
+class runbot_forced_branch(osv.Model):
+    _name = "runbot.forced.branch"
+
+    _columns = {
+        'repo_id': fields.many2one('runbot.repo', 'Repository', required=True, ondelete='cascade', select=1),
+        'dep_repo_id': fields.many2one('runbot.repo', required=True, string="For dep. repo"),
+        'name': fields.char('Branch name to replace', required=True),
+        'forced_name': fields.char('Replacing branch name', required=True),
+    }
+
 
 class RunbotControllerPS(runbot.RunbotController):
 
