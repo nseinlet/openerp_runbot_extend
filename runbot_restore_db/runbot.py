@@ -181,10 +181,6 @@ class runbot_build(osv.osv):
         return regex
 
     def schedule(self, cr, uid, ids, context=None):
-        """
-        /!\ must rewrite the all method because for each build we need
-            to remove jobs that were specified as skipped in the repo.
-        """
         all_jobs = self.list_jobs()
         icp = self.pool['ir.config_parameter']
         timeout = int(icp.get_param(cr, uid, 'runbot.timeout', default=1800))
@@ -214,6 +210,7 @@ class runbot_build(osv.osv):
                     # kill if overpassed
                     if build.job != jobs[-1] and build.job_time > timeout:
                         build.logger('%s time exceded (%ss)', build.job, build.job_time)
+                        build.write({'job_end': now()})
                         build.kill(result='killed')
                     continue
                 build.logger('%s finished', build.job)
@@ -239,6 +236,7 @@ class runbot_build(osv.osv):
             if build.state != 'done':
                 build.logger('running %s', build.job)
                 job_method = getattr(self,build.job)
+                mkdirs([build.path('logs')])
                 lock_path = build.path('logs', '%s.lock' % build.job)
                 log_path = build.path('logs', '%s.txt' % build.job)
                 pid = job_method(cr, uid, build, lock_path, log_path)
@@ -253,7 +251,7 @@ class runbot_build(osv.osv):
 
             # cleanup only needed if it was not killed
             if build.state == 'done':
-                build.cleanup()
+                build._local_cleanup()
 
 class job(osv.Model):
     _name = "runbot.job"
