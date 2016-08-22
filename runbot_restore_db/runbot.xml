@@ -13,6 +13,13 @@
                     <field name="skip_job_ids" widget="many2many_tags" options="{'no_create': True}"/>
                     <field name="no_testenable_job26" />
                     <field name="parse_job_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                    <field name="forced_branch_ids">
+                      <tree editable="bottom">
+                        <field name="dep_repo_id"/>
+                        <field name="name"/>
+                        <field name="forced_name"/>
+                      </tree>
+                    </field>
                     <field name="force_update_all" />
                     <field name="error" />
                     <field name="critical" />
