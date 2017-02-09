@@ -8,7 +8,6 @@
                 <field name="modules" position="after">
                     <field name="db_name" />
                     <field name="nobuild" />
-                    <field name="sequence" />
 
                     <field name="skip_job_ids" widget="many2many_tags" options="{'no_create': True}"/>
                     <field name="no_testenable_job26" />

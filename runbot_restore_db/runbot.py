@@ -285,7 +285,6 @@ class runbot_repo(osv.Model):
         'db_name': fields.char("Database name to replicate"),
         'force_update_all' : fields.boolean("Force Update ALL", help="Force update all on job_26 otherwise it will update only the modules in the repository"),
         'nobuild': fields.boolean('Do not build'),
-        'sequence': fields.integer('Sequence of display', select=True),
         'error': fields.selection(loglevels, 'Error messages'),
         'critical': fields.selection(loglevels, 'Critical messages'),
         'traceback': fields.selection(loglevels, 'Traceback messages'),
@@ -304,8 +303,6 @@ class runbot_repo(osv.Model):
         'warning': 'warning',
         'failed': 'none',
     }
-
-    _order = 'sequence'
 
     def update_git(self, cr, uid, repo, context=None):
         super(runbot_repo, self).update_git(cr, uid, repo, context)
