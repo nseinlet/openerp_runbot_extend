@@ -48,17 +48,6 @@ class runbot_build(osv.osv):
                         )
             build.write({'modules': ','.join(modules_to_test)})
 
-
-    def job_21_checkdeadbuild(self, cr, uid, build, lock_path, log_path):
-        for proc in psutil.process_iter():
-            if proc.name in ('openerp', 'python', 'openerp-server'):
-                lgn = proc.cmdline
-                if ('--xmlrpc-port=%s' % build.port) in lgn:
-                    try:
-                        os.killpg(proc.pid, signal.SIGKILL)
-                    except OSError:
-                        pass
-
     def job_25_restore(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
             return 0
