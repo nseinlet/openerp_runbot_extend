@@ -18,16 +18,30 @@ loglevels = (('none', 'None'),
              ('warning', 'Warning'),
              ('error', 'Error'))
 
-class runbot_build(osv.osv):
+class RunbotBranch(osv.osv):
+    _inherit = "runbot.branch"
+    
+    def _get_branch_quickconnect_url(self, cr, uid, ids, fqdn, dest, context=None):
+        r = {}
+        for branch in self.browse(cr, uid, ids, context=context):
+            if branch.branch_name.startswith('7'):
+                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin" % (fqdn, dest, 'cust' if branch.repo_id.db_name else 'all')
+            elif branch.name.startswith('8'):
+                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin&redirect=/web?debug=1" % (fqdn, dest, 'cust' if branch.repo_id.db_name else 'all')
+            else:
+                r[branch.id] = "http://%s/web/login?db=%s-%s&login=admin&redirect=/web?debug=1" % (fqdn, dest, 'cust' if branch.repo_id.db_name else 'all')
+        return r
+
+class RunbotBuild(osv.osv):
     _inherit = "runbot.build"
 
     def _local_pg_dropdb(self, cr, uid, dbname):
         with local_pgadmin_cursor() as local_cr:
             local_cr.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity  WHERE datname = '%s' and pid != pg_backend_pid()" % dbname)
-        super(runbot_build, self)._local_pg_dropdb(cr, uid, dbname)
+        super(RunbotBuild, self)._local_pg_dropdb(cr, uid, dbname)
 
     def checkout(self, cr, uid, ids, context=None):
-        super(runbot_build, self).checkout(cr, uid, ids, context)
+        super(RunbotBuild, self).checkout(cr, uid, ids, context)
         reps = ('uploadable addon', 'trial', 'default')
 
         #Check uploadable adon (EDI server)
@@ -51,8 +65,8 @@ class runbot_build(osv.osv):
     def job_25_restore(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
             return 0
-        self._local_pg_createdb(cr, uid, "%s-all" % build.dest)
-        cmd = "pg_dump %s | psql %s-all" % (build.repo_id.db_name, build.dest)
+        self._local_pg_createdb(cr, uid, "%s-custom" % build.dest)
+        cmd = "pg_dump %s | psql %s-custom" % (build.repo_id.db_name, build.dest)
         return self.spawn(cmd, lock_path, log_path, cpu_limit=None, shell=True)
 
     def job_26_upgrade(self, cr, uid, build, lock_path, log_path):
@@ -60,7 +74,7 @@ class runbot_build(osv.osv):
             return 0
         to_test = build.modules if build.modules and not build.repo_id.force_update_all else 'all'
         cmd, mods = build.cmd()
-        cmd += ['-d', '%s-all' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=info']
+        cmd += ['-d', '%s-custom' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=info']
         if not build.repo_id.no_testenable_job26:
             cmd.append("--test-enable")
         return self.spawn(cmd, lock_path, log_path, cpu_limit=None)
@@ -248,12 +262,24 @@ class runbot_build(osv.osv):
             if build.state == 'done':
                 build._local_cleanup()
 
+    def cmd(self, cr, uid, ids, context=None):
+        """Return a list describing the command to start the build"""
+        cmd, modules = super(RunbotBuild, self).cmd(cr, uid, ids, context)
+        for build in self.browse(cr, uid, ids, context=context):
+            if build.repo_id.custom_config:
+                with open("%s/build.cfg" % build.path(), 'w+') as cfg:
+                    cfg.write("[options]\n")
+                    cfg.write(build.repo_id.custom_config)
+                cmd += ["-c", "build.cfg"]
+        return cmd, modules
+            
 class job(osv.Model):
     _name = "runbot.job"
 
     _columns = {
         'name': fields.char("Job name")
     }
+
 
 class runbot_repo(osv.Model):
     _inherit = "runbot.repo"
@@ -282,7 +308,8 @@ class runbot_repo(osv.Model):
         'skip_job_ids': fields.many2many('runbot.job', string='Jobs to skip'),
         'parse_job_ids': fields.many2many('runbot.job', "repo_parse_job_rel", string='Jobs to parse'),
         'no_testenable_job26': fields.boolean('No test-enabled', help='No test-enabled on job 26 (test-enable is unknown for 6.1)'),
-        'forced_branch_ids': fields.one2many('runbot.forced.branch', 'repo_id', string='Replacing branch names')
+        'forced_branch_ids': fields.one2many('runbot.forced.branch', 'repo_id', string='Replacing branch names'),
+        'custom_config': fields.text('Custom configuration', help="This config will be placed in a text file, behind the [option] line, and passed with a -c to the jobs.")
     }
 
     _defaults = {
@@ -300,6 +327,7 @@ class runbot_repo(osv.Model):
             bds_ids = bds.search(cr, uid, [('repo_id', '=', repo.id), ('state', '=', 'pending'), ('branch_id.sticky', '=', False)], context=context)
             bds.write(cr, uid, bds_ids, {'state': 'done'}, context=context)
 
+
 class runbot_forced_branch(osv.Model):
     _name = "runbot.forced.branch"
 
@@ -316,4 +344,5 @@ class RunbotControllerPS(runbot.RunbotController):
     def build_info(self, build):
         res = super(RunbotControllerPS, self).build_info(build)
         res['parse_job_ids'] = [elmt.name for elmt in build.repo_id.parse_job_ids]
+        res['restored_db_name'] = build.repo_id.db_name
         return res
