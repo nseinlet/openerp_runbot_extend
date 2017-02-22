@@ -25,11 +25,11 @@ class RunbotBranch(osv.osv):
         r = {}
         for branch in self.browse(cr, uid, ids, context=context):
             if branch.branch_name.startswith('7'):
-                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin" % (fqdn, dest, 'cust' if branch.repo_id.db_name else 'all')
+                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin" % (fqdn, dest, 'custom' if branch.repo_id.db_name else 'all')
             elif branch.name.startswith('8'):
-                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin&redirect=/web?debug=1" % (fqdn, dest, 'cust' if branch.repo_id.db_name else 'all')
+                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin&redirect=/web?debug=1" % (fqdn, dest, 'custom' if branch.repo_id.db_name else 'all')
             else:
-                r[branch.id] = "http://%s/web/login?db=%s-%s&login=admin&redirect=/web?debug=1" % (fqdn, dest, 'cust' if branch.repo_id.db_name else 'all')
+                r[branch.id] = "http://%s/web/login?db=%s-%s&login=admin&redirect=/web?debug=1" % (fqdn, dest, 'custom' if branch.repo_id.db_name else 'all')
         return r
 
 class RunbotBuild(osv.osv):
