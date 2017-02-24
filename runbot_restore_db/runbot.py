@@ -267,8 +267,6 @@ class RunbotBuild(osv.osv):
         cmd, modules = super(RunbotBuild, self).cmd(cr, uid, ids, context)
         for build in self.browse(cr, uid, ids, context=context):
             if build.repo_id.custom_config:
-                import pudb
-                pu.db
                 rbc = self.pool.get('runbot.build.configuration').create(cr, uid, {
                     'name': 'custom config build %s' % build.id,
                     'model': 'runbot.build',
