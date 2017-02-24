@@ -267,11 +267,22 @@ class RunbotBuild(osv.osv):
         cmd, modules = super(RunbotBuild, self).cmd(cr, uid, ids, context)
         for build in self.browse(cr, uid, ids, context=context):
             if build.repo_id.custom_config:
+                import pudb
+                pu.db
+                rbc = self.pool.get('runbot.build.configuration').create(cr, uid, {
+                    'name': 'custom config build %s' % build.id,
+                    'model': 'runbot.build',
+                    'type': 'qweb',
+                    'arch': "<?xml version='1.0'?><t t-name='runbot.build_config_%s'>%s</t>" % (build.id, build.repo_id.custom_config),
+                }, context=context)
+                settings = {'build': build}
+                build_config = self.pool['runbot.build.configuration'].render(cr, uid, rbc, settings)
                 with open("%s/build.cfg" % build.path(), 'w+') as cfg:
                     cfg.write("[options]\n")
-                    cfg.write(build.repo_id.custom_config)
-                cmd += ["-c", "build.cfg"]
+                    cfg.write(build_config)
+                cmd += ["-c", "%s/build.cfg" % build.path()]
         return cmd, modules
+            
             
 class job(osv.Model):
     _name = "runbot.job"
@@ -346,3 +357,11 @@ class RunbotControllerPS(runbot.RunbotController):
         res['parse_job_ids'] = [elmt.name for elmt in build.repo_id.parse_job_ids]
         res['restored_db_name'] = build.repo_id.db_name
         return res
+
+
+class BuildConfig(osv.osv_memory):
+    _name = 'runbot.build.configuration'
+    _description = 'Runbot build custom configuration'
+    _inherit = 'ir.ui.view'
+    
+    
