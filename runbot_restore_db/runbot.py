@@ -95,7 +95,7 @@ class RunbotBuild(osv.osv):
             if grep(log_all, ".modules.loading: Modules loaded."):
                 if rfind(log_all, runbot._re_error):
                     result = "ko"
-                    break;
+                    break
                 elif rfind(log_all, runbot._re_warning):
                     result = "warn"
                 elif not grep(build.server("test/common.py"), "post_install") or grep(log_all, "Initiating shutdown."):
@@ -103,7 +103,7 @@ class RunbotBuild(osv.osv):
                         result = "ok"
             else:
                 result = "ko"
-                break;
+                break
             log_time = time.localtime(os.path.getmtime(log_all))
             v['job_end'] = time.strftime(openerp.tools.DEFAULT_SERVER_DATETIME_FORMAT, log_time)
         v['result'] = result
@@ -152,7 +152,7 @@ class RunbotBuild(osv.osv):
                 thebuild = self.browse(cr, uid, build_ids, context=context)
                 if thebuild:
                     return result_for(thebuild[0].branch_id)
-            return name
+            return target_repo_id, name, 'default'
 
     def _get_regexeforlog(self, build, errlevel):
         addederror = False
