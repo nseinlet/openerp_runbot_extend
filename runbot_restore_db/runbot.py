@@ -73,7 +73,7 @@ class RunbotBuild(osv.osv):
         if not build.repo_id.db_name:
             return 0
         to_test = build.modules if build.modules and not build.repo_id.force_update_all else 'all'
-        cmd, mods = build.cmd()
+        cmd, mods = build._cmd()
         cmd += ['-d', '%s-custom' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=info']
         if not build.repo_id.no_testenable_job26:
             cmd.append("--test-enable")
