@@ -49,7 +49,7 @@ class RunbotBuild(osv.osv):
             # move all addons to server addons path
             modules_to_test = build.modules.split(",")
             for rep in reps:
-                for module in set(glob.glob(build.path('%s/*' % rep))):
+                for module in set(glob.glob(build._path('%s/*' % rep))):
                     basename = os.path.basename(module)
                     if not os.path.exists(build.server('addons', basename)):
                         shutil.move(module, build.server('addons'))
@@ -91,7 +91,7 @@ class RunbotBuild(osv.osv):
         result = "ok"
         log_names = [elmt.name for elmt in build.repo_id.parse_job_ids]
         for log_name in log_names:
-            log_all = build.path('logs', log_name+'.txt')
+            log_all = build._path('logs', log_name+'.txt')
             if grep(log_all, ".modules.loading: Modules loaded."):
                 if rfind(log_all, runbot._re_error):
                     result = "ko"
@@ -214,7 +214,7 @@ class RunbotBuild(osv.osv):
                 cr.commit()
             else:
                 # check if current job is finished
-                lock_path = build.path('logs', '%s.lock' % build.job)
+                lock_path = build._path('logs', '%s.lock' % build.job)
                 if locked(lock_path):
                     # kill if overpassed
                     if build.job != jobs[-1] and build.job_time > timeout:
@@ -281,10 +281,10 @@ class RunbotBuild(osv.osv):
                 }, context=context)
                 settings = {'build': build}
                 build_config = self.pool['runbot.build.configuration'].render(cr, uid, rbc, settings)
-                with open("%s/build.cfg" % build.path(), 'w+') as cfg:
+                with open("%s/build.cfg" % build._path(), 'w+') as cfg:
                     cfg.write("[options]\n")
                     cfg.write(build_config)
-                cmd += ["-c", "%s/build.cfg" % build.path()]
+                cmd += ["-c", "%s/build.cfg" % build._path()]
         return cmd, modules
             
             
