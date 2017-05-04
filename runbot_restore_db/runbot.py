@@ -40,8 +40,8 @@ class RunbotBuild(osv.osv):
             local_cr.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity  WHERE datname = '%s' and pid != pg_backend_pid()" % dbname)
         super(RunbotBuild, self)._local_pg_dropdb(cr, uid, dbname)
 
-    def checkout(self, cr, uid, ids, context=None):
-        super(RunbotBuild, self).checkout(cr, uid, ids, context)
+    def _checkout(self, cr, uid, ids, context=None):
+        super(RunbotBuild, self)._checkout(cr, uid, ids, context)
         reps = ('uploadable addon', 'trial', 'default')
 
         #Check uploadable adon (EDI server)
@@ -62,14 +62,14 @@ class RunbotBuild(osv.osv):
                         )
             build.write({'modules': ','.join(modules_to_test)})
 
-    def job_25_restore(self, cr, uid, build, lock_path, log_path):
+    def _job_25_restore(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
             return 0
         self._local_pg_createdb(cr, uid, "%s-custom" % build.dest)
         cmd = "pg_dump %s | psql %s-custom" % (build.repo_id.db_name, build.dest)
-        return self.spawn(cmd, lock_path, log_path, cpu_limit=None, shell=True)
+        return self._spawn(cmd, lock_path, log_path, cpu_limit=None, shell=True)
 
-    def job_26_upgrade(self, cr, uid, build, lock_path, log_path):
+    def _job_26_upgrade(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name:
             return 0
         to_test = build.modules if build.modules and not build.repo_id.force_update_all else 'all'
@@ -77,9 +77,9 @@ class RunbotBuild(osv.osv):
         cmd += ['-d', '%s-custom' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=info']
         if not build.repo_id.no_testenable_job26:
             cmd.append("--test-enable")
-        return self.spawn(cmd, lock_path, log_path, cpu_limit=None)
+        return self._spawn(cmd, lock_path, log_path, cpu_limit=None)
 
-    def job_30_run(self, cr, uid, build, lock_path, log_path):
+    def _job_30_run(self, cr, uid, build, lock_path, log_path):
         if build.repo_id.db_name and build.state == 'running' and build.result == "ko":
             return 0
         runbot._re_error = self._get_regexeforlog(build=build, errlevel='error')
@@ -108,11 +108,11 @@ class RunbotBuild(osv.osv):
             v['job_end'] = time.strftime(openerp.tools.DEFAULT_SERVER_DATETIME_FORMAT, log_time)
         v['result'] = result
         build.write(v)
-        build.github_status()
+        build._github_status()
 
         # run server
-        cmd, mods = build.cmd()
-        if os.path.exists(build.server('addons/im_livechat')):
+        cmd, mods = build._cmd()
+        if os.path.exists(build._server('addons/im_livechat')):
             cmd += ["--workers", "2"]
             cmd += ["--longpolling-port", "%d" % (build.port + 1)]
             cmd += ["--max-cron-threads", "1"]
@@ -122,13 +122,13 @@ class RunbotBuild(osv.osv):
 
         cmd += ['-d', "%s-all" % build.dest]
 
-        if grep(build.server("tools/config.py"), "db-filter"):
+        if grep(build._server("tools/config.py"), "db-filter"):
             if build.repo_id.nginx:
                 cmd += ['--db-filter','%d.*']
             else:
                 cmd += ['--db-filter','%s.*$' % build.dest]
 
-        return self.spawn(cmd, lock_path, log_path, cpu_limit=None)
+        return self._spawn(cmd, lock_path, log_path, cpu_limit=None)
 
     def _get_closest_branch_name(self, cr, uid, ids, target_repo_id, context=None):
         """Return the name of the odoo branch
@@ -189,8 +189,8 @@ class RunbotBuild(osv.osv):
         #regex = '^' + regex + '$'
         return regex
 
-    def schedule(self, cr, uid, ids, context=None):
-        all_jobs = self.list_jobs()
+    def _schedule(self, cr, uid, ids, context=None):
+        all_jobs = self._list_jobs()
         icp = self.pool['ir.config_parameter']
         timeout = int(icp.get_param(cr, uid, 'runbot.timeout', default=1800))
 
@@ -201,7 +201,7 @@ class RunbotBuild(osv.osv):
                 jobs.remove(job_to_skip.name)
             if build.state == 'pending':
                 # allocate port and schedule first job
-                port = self.find_port(cr, uid)
+                port = self._find_port(cr, uid)
                 values = {
                     'host': fqdn(),
                     'port': port,
@@ -218,11 +218,11 @@ class RunbotBuild(osv.osv):
                 if locked(lock_path):
                     # kill if overpassed
                     if build.job != jobs[-1] and build.job_time > timeout:
-                        build.logger('%s time exceded (%ss)', build.job, build.job_time)
+                        build._logger('%s time exceded (%ss)', build.job, build.job_time)
                         build.write({'job_end': now()})
-                        build.kill(result='killed')
+                        build._kill(result='killed')
                     continue
-                build.logger('%s finished', build.job)
+                build._logger('%s finished', build.job)
                 # schedule
                 v = {}
                 # testing -> running
@@ -243,28 +243,34 @@ class RunbotBuild(osv.osv):
             # run job
             pid = None
             if build.state != 'done':
-                build.logger('running %s', build.job)
-                job_method = getattr(self,build.job)
-                mkdirs([build.path('logs')])
-                lock_path = build.path('logs', '%s.lock' % build.job)
-                log_path = build.path('logs', '%s.txt' % build.job)
-                pid = job_method(cr, uid, build, lock_path, log_path)
-                build.write({'pid': pid})
+                build._logger('running %s', build.job)
+                job_method = getattr(self, '_' + build.job)
+                mkdirs([build._path('logs')])
+                lock_path = build._path('logs', '%s.lock' % build.job)
+                log_path = build._path('logs', '%s.txt' % build.job)
+                try:
+                    pid = job_method(cr, uid, build, lock_path, log_path)
+                    build.write({'pid': pid})
+                except Exception:
+                    _logger.exception('%s failed running method %s', build.dest, build.job)
+                    build._log(build.job, "failed running job method, see runbot log")
+                    build._kill(result='ko')
+                    continue
             # needed to prevent losing pids if multiple jobs are started and one them raise an exception
             cr.commit()
 
             if pid == -2:
                 # no process to wait, directly call next job
                 # FIXME find a better way that this recursive call
-                build.schedule()
+                build._schedule()
 
             # cleanup only needed if it was not killed
             if build.state == 'done':
                 build._local_cleanup()
 
-    def cmd(self, cr, uid, ids, context=None):
+    def _cmd(self, cr, uid, ids, context=None):
         """Return a list describing the command to start the build"""
-        cmd, modules = super(RunbotBuild, self).cmd(cr, uid, ids, context)
+        cmd, modules = super(RunbotBuild, self)._cmd(cr, uid, ids, context)
         for build in self.browse(cr, uid, ids, context=context):
             if build.repo_id.custom_config:
                 rbc = self.pool.get('runbot.build.configuration').create(cr, uid, {
@@ -295,7 +301,7 @@ class runbot_repo(osv.Model):
 
     def cron_update_job(self, cr, uid, context=None):
         build_obj = self.pool.get('runbot.build')
-        jobs = build_obj.list_jobs()
+        jobs = build_obj._list_jobs()
         job_obj = self.pool.get('runbot.job')
         for job_name in jobs:
             job_id = job_obj.search(cr, uid, [('name', '=', job_name)])

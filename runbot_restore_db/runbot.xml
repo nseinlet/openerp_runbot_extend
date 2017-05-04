@@ -82,7 +82,7 @@
             <field name="interval_number">1</field>
             <field name="interval_type">minutes</field>
             <field name="numbercall">-1</field>
-            <field name="doall" eval="True" />
+            <field name="doall" eval="False" />
             <field name="model" eval="'runbot.repo'" />
             <field name="function" eval="'cron_update_job'" />
             <field name="args" eval="''" />
