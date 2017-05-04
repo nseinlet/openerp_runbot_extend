@@ -51,8 +51,8 @@ class RunbotBuild(osv.osv):
             for rep in reps:
                 for module in set(glob.glob(build._path('%s/*' % rep))):
                     basename = os.path.basename(module)
-                    if not os.path.exists(build.server('addons', basename)):
-                        shutil.move(module, build.server('addons'))
+                    if not os.path.exists(build._server('addons', basename)):
+                        shutil.move(module, build._server('addons'))
                         if basename[:5]!="saas_":
                             modules_to_test.append(basename)
                     else:
@@ -98,7 +98,7 @@ class RunbotBuild(osv.osv):
                     break
                 elif rfind(log_all, runbot._re_warning):
                     result = "warn"
-                elif not grep(build.server("test/common.py"), "post_install") or grep(log_all, "Initiating shutdown."):
+                elif not grep(build._server("test/common.py"), "post_install") or grep(log_all, "Initiating shutdown."):
                     if result != "warn":
                         result = "ok"
             else:
