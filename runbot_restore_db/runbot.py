@@ -136,7 +136,9 @@ class RunbotBuild(osv.osv):
         result_for = lambda d: (d.repo_id.id, d.name, 'exact')
 
         for build in self.browse(cr, uid, ids, context=context):
-            name = build.branch_id.branch_name
+            branch = build.branch_id
+            pi = branch._get_pull_info()
+            name = pi['base']['ref'] if pi else branch.branch_name
             if name.split('-',1)[0] == "saas":
                 name = "%s-%s" % (name.split('-',1)[0], name.split('-',2)[1])
             else:
