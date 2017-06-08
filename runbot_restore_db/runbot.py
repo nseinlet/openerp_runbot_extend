@@ -21,15 +21,19 @@ loglevels = (('none', 'None'),
 class RunbotBranch(osv.osv):
     _inherit = "runbot.branch"
     
+    _columns = {
+        'db_name': fields.char("Database name to replicate"),
+    }
+    
     def _get_branch_quickconnect_url(self, cr, uid, ids, fqdn, dest, context=None):
         r = {}
         for branch in self.browse(cr, uid, ids, context=context):
             if branch.branch_name.startswith('7'):
-                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin" % (fqdn, dest, 'custom' if branch.repo_id.db_name else 'all')
+                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin" % (fqdn, dest, 'custom' if branch.repo_id.db_name or branch.db_name else 'all')
             elif branch.name.startswith('8'):
-                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin&redirect=/web?debug=1" % (fqdn, dest, 'custom' if branch.repo_id.db_name else 'all')
+                r[branch.id] = "http://%s/login?db=%s-%s&login=admin&key=admin&redirect=/web?debug=1" % (fqdn, dest, 'custom' if branch.repo_id.db_name or branch.db_name else 'all')
             else:
-                r[branch.id] = "http://%s/web/login?db=%s-%s&login=admin&redirect=/web?debug=1" % (fqdn, dest, 'custom' if branch.repo_id.db_name else 'all')
+                r[branch.id] = "http://%s/web/login?db=%s-%s&login=admin&redirect=/web?debug=1" % (fqdn, dest, 'custom' if branch.repo_id.db_name or branch.db_name else 'all')
         return r
 
 class RunbotBuild(osv.osv):
@@ -63,14 +67,14 @@ class RunbotBuild(osv.osv):
             build.write({'modules': ','.join(modules_to_test)})
 
     def _job_25_restore(self, cr, uid, build, lock_path, log_path):
-        if not build.repo_id.db_name:
+        if not build.repo_id.db_name and not build.branch_id.db_name:
             return 0
         self._local_pg_createdb(cr, uid, "%s-custom" % build.dest)
-        cmd = "pg_dump %s | psql %s-custom" % (build.repo_id.db_name, build.dest)
+        cmd = "pg_dump %s | psql %s-custom" % (build.branch_id.db_name or build.repo_id.db_name, build.dest)
         return self._spawn(cmd, lock_path, log_path, cpu_limit=None, shell=True)
 
     def _job_26_upgrade(self, cr, uid, build, lock_path, log_path):
-        if not build.repo_id.db_name:
+        if not build.repo_id.db_name and not build.branch_id.db_name:
             return 0
         to_test = build.modules if build.modules and not build.repo_id.force_update_all else 'all'
         cmd, mods = build._cmd()
@@ -80,7 +84,7 @@ class RunbotBuild(osv.osv):
         return self._spawn(cmd, lock_path, log_path, cpu_limit=None)
 
     def _job_30_run(self, cr, uid, build, lock_path, log_path):
-        if build.repo_id.db_name and build.state == 'running' and build.result == "ko":
+        if (build.repo_id.db_name or build.branch_id.db_name) and build.state == 'running' and build.result == "ko":
             return 0
         runbot._re_error = self._get_regexeforlog(build=build, errlevel='error')
         runbot._re_warning = self._get_regexeforlog(build=build, errlevel='warning')
@@ -337,8 +341,8 @@ class runbot_repo(osv.Model):
         'failed': 'none',
     }
 
-    def update_git(self, cr, uid, repo, context=None):
-        super(runbot_repo, self).update_git(cr, uid, repo, context)
+    def _update_git(self, cr, uid, repo, context=None):
+        super(runbot_repo, self)._update_git(cr, uid, repo, context)
         if repo.nobuild:
             bds = self.pool['runbot.build']
             bds_ids = bds.search(cr, uid, [('repo_id', '=', repo.id), ('state', '=', 'pending'), ('branch_id.sticky', '=', False)], context=context)
@@ -361,7 +365,7 @@ class RunbotControllerPS(runbot.RunbotController):
     def build_info(self, build):
         res = super(RunbotControllerPS, self).build_info(build)
         res['parse_job_ids'] = [elmt.name for elmt in build.repo_id.parse_job_ids]
-        res['restored_db_name'] = build.repo_id.db_name
+        res['restored_db_name'] = build.branch_id.db_name or build.repo_id.db_name
         return res
 
 
