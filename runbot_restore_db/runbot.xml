@@ -57,7 +57,7 @@
             </xpath>
             <xpath expr="//ul" position="replace">
                 <ul class="dropdown-menu" role="menu">
-                    <li t-if="bu['result']=='skipped'">
+                    <li t-if="bu['result']=='skipped'" groups="runbot.group_runbot_admin">
                         <a href="#" class="runbot-rebuild" t-att-data-runbot-build="bu['id']">Force Build <i class="fa fa-level-up"></i></a>
                     </li>
                     <t t-if="bu['state']=='running'">
@@ -66,7 +66,7 @@
                         <li><a t-attf-href="http://{{bu['domain']}}/?db={{bu['real_dest']}}-base" target="_blank">Connect base <i class="fa fa-sign-in"></i></a></li>
                         <li><a t-attf-href="http://{{bu['domain']}}/" target="_blank">Connect <i class="fa fa-sign-in"></i></a></li>
                     </t>
-                    <li t-if="bu['state'] in ['done','running'] and bu_index==0">
+                    <li t-if="bu['state'] in ['done','running'] and bu_index==0"  groups="runbot.group_user">
                         <a href="#" class="runbot-rebuild" t-att-data-runbot-build="bu['id']">Rebuild <i class="fa fa-refresh"/></a>
                     </li>
                     <li t-if="bu['state']!='testing' and bu['state']!='pending'" class="divider"></li>
