@@ -68,14 +68,14 @@ class RunbotBuild(osv.osv):
 
     def _job_25_restore(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name and not build.branch_id.db_name:
-            return 0
+            return -2
         self._local_pg_createdb(cr, uid, "%s-custom" % build.dest)
         cmd = "pg_dump %s | psql %s-custom" % (build.branch_id.db_name or build.repo_id.db_name, build.dest)
         return self._spawn(cmd, lock_path, log_path, cpu_limit=None, shell=True)
 
     def _job_26_upgrade(self, cr, uid, build, lock_path, log_path):
         if not build.repo_id.db_name and not build.branch_id.db_name:
-            return 0
+            return -2
         to_test = build.modules if build.modules and not build.repo_id.force_update_all else 'all'
         cmd, mods = build._cmd()
         cmd += ['-d', '%s-custom' % build.dest, '-u', to_test, '--stop-after-init', '--log-level=info']
